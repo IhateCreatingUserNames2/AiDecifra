@@ -1,212 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>BlueWidow AI</title>
+  <title>IA Decifra - Simplificando o Juridiquês</title>
   <style>
     body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
-      padding: 0;
-    }
-    .chat-container {
-      max-width: 800px;
-      margin: 20px auto;
       padding: 20px;
-      background-color: #1e1e1e;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+      text-align: center;
     }
     h2 {
+      color: #34495e;
+      margin-bottom: 25px;
+      font-weight: normal;
+      font-size: 1.1em;
       text-align: center;
     }
-    #chat-log {
-      height: 400px;
-      overflow-y: auto;
-      border: 1px solid #444;
+    .input-section {
+      margin-bottom: 30px;
+    }
+    textarea {
+      width: 95%;
+      min-height: 150px; /* Reduzido um pouco para dar espaço ao upload */
+      padding: 15px;
+      margin-bottom: 15px;
+      border: 1px solid #bdc3c7;
+      border-radius: 8px;
+      font-size: 1em;
+      resize: vertical;
+      background-color: #ecf0f1;
+    }
+    button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background-color: #3498db;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1em;
+      transition: background-color 0.3s ease;
+      display: block; /* Para centralizar o botão */
+      margin: 0 auto 20px auto; /* Margem para separar */
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .upload-form input[type="file"] {
+      display: block;
+      margin: 0 auto 15px auto; /* Centraliza e adiciona margem */
       padding: 10px;
-      margin-bottom: 20px;
-      background-color: #2a2a2a;
-      border-radius: 4px;
+      border: 1px solid #bdc3c7;
+      border-radius: 8px;
+      background-color: #ecf0f1;
+      width: fit-content; /* Ajusta a largura ao conteúdo */
     }
-    .message {
-      padding: 8px;
-      margin-bottom: 10px;
-      border-radius: 4px;
-    }
-    .message.user {
-      background-color: #3a3a3a;
-      text-align: right;
-    }
-    .message.assistant {
-      background-color: #555;
+    #analysis-result {
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background-color: #f9f9f9;
       text-align: left;
+      white-space: pre-wrap; 
+      font-family: 'Courier New', Courier, monospace;
+      max-height: 400px; /* Adiciona scroll se o resultado for muito grande */
+      overflow-y: auto;   /* Adiciona scroll se o resultado for muito grande */
     }
-    .input-container {
-      display: flex;
-      gap: 10px;
-    }
-    .input-container input[type="text"] {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
-    }
-    .input-container button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      background-color: #4CAF50;
-      color: #fff;
-      cursor: pointer;
-    }
-    .upload-container {
-      margin-top: 20px;
-    }
-    .upload-container input[type="file"] {
-      margin-right: 10px;
-    }
-    .realtime-container {
-      margin-top: 20px;
+    .loading {
+      margin-top: 15px;
+      font-style: italic;
+      color: #7f8c8d;
       text-align: center;
     }
-    .realtime-container button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      background-color: #008CBA;
-      color: #fff;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    /* Optional: Style markdown-generated HTML elements */
-    .assistant h1, .assistant h2, .assistant h3 {
-      margin: 10px 0;
-      color: #ffcc00;
-    }
-    .assistant p {
-      margin: 10px 0;
-    }
-    .assistant ul {
-      padding-left: 20px;
-    }
-    .assistant hr {
-      border: 1px solid #888;
-      margin: 15px 0;
-    }
-    .assistant a {
-      color: #66aaff;
+    .separator {
+        text-align: center;
+        margin: 20px 0;
+        color: #7f8c8d;
+        font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div class="chat-container">
-    <h2>Chatbot Assistant</h2>
-    <div id="chat-log"></div>
-    <div class="input-container">
-      <input type="text" id="chat-input" placeholder="Escreva sua pergunta aqui..." />
-      <button id="send-btn">Send</button>
+  <div class="container">
+    <h1>IA Decifra</h1>
+    <h2>Cole o texto jurídico abaixo OU envie um arquivo (.txt ou .pdf) para análise.</h2>
+    
+    <div class="input-section" id="text-input-section">
+      <h3>Analisar Texto Colado</h3>
+      <textarea id="legal-text-input" placeholder="Cole aqui o contrato, cláusula ou trecho do processo..."></textarea>
+      <button id="analyze-text-btn">Analisar Texto Colado</button>
     </div>
-    <div class="upload-container">
-      <h3>Adicione arquivos PDF ou TXT na memória da IA</h3>
-      <form id="upload-form">
-        <input type="file" id="file-input" name="file" accept=".pdf,.txt" />
-        <button type="submit">Enviar para Memória</button>
+
+    <div class="separator">OU</div>
+
+    <div class="input-section" id="file-upload-section">
+      <h3>Analisar Arquivo</h3>
+      <form id="upload-form" class="upload-form">
+        <input type="file" id="file-input" name="legal_file" accept=".txt,.pdf" />
+        <button type="submit" id="analyze-file-btn">Analisar Arquivo Enviado</button>
       </form>
     </div>
-    <!-- Botão para acessar a página realtime.html -->
-    <div class="realtime-container">
-      <button onclick="window.location.href='/realtime'">Acessar Chatbot Realtime</button>
+    
+    <div id="loading-message" class="loading" style="display: none;">Analisando... Por favor, aguarde.</div>
+    <div id="analysis-result">
+      <!-- A análise da IA aparecerá aqui -->
     </div>
   </div>
 
-  <!-- Load Marked (a Markdown parser) from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
-    const chatLog = document.getElementById('chat-log');
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
+    const legalTextInput = document.getElementById('legal-text-input');
+    const analyzeTextBtn = document.getElementById('analyze-text-btn');
     const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const analyzeFileBtn = document.getElementById('analyze-file-btn');
+    const analysisResultDiv = document.getElementById('analysis-result');
+    const loadingMessage = document.getElementById('loading-message');
 
-    // Append a message to the chat log, converting markdown for assistant replies.
-    function appendMessage(role, content) {
-      const msgDiv = document.createElement('div');
-      msgDiv.classList.add('message', role);
-      if (role === 'assistant') {
-        // Convert markdown to HTML using marked.
-        msgDiv.innerHTML = marked.parse(content);
-      } else {
-        msgDiv.textContent = content;
-      }
-      chatLog.appendChild(msgDiv);
-      chatLog.scrollTop = chatLog.scrollHeight;
-    }
-
-    // Send chat message on button click
-    sendBtn.addEventListener('click', async () => {
-      const message = chatInput.value.trim();
-      if (!message) return;
-      appendMessage('user', message);
-      chatInput.value = '';
+    async function fetchAnalysis(endpoint, body, isFormData = false) {
+      analysisResultDiv.innerHTML = ''; 
+      loadingMessage.style.display = 'block'; 
+      analyzeTextBtn.disabled = true;
+      analyzeFileBtn.disabled = true;
 
       try {
-        const response = await fetch('/api/chat', {
+        const fetchOptions = {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        let reply = '';
-
-        // Try extracting the assistant reply from different possible properties.
-        if (data.chat_completion && data.chat_completion.choices && data.chat_completion.choices.length > 0) {
-          reply = data.chat_completion.choices[0].message.content;
-        } else if (data.choices && data.choices.length > 0) {
-          reply = data.choices[0].message.content;
-        } else if (data.message && data.message.content) {
-          reply = data.message.content;
+        };
+        if (isFormData) {
+          fetchOptions.body = body; // FormData é passado diretamente
         } else {
-          reply = JSON.stringify(data, null, 2);
+          fetchOptions.headers = { 'Content-Type': 'application/json' };
+          fetchOptions.body = JSON.stringify(body);
         }
-        appendMessage('assistant', reply);
+
+        const response = await fetch(endpoint, fetchOptions);
+        
+        loadingMessage.style.display = 'none';
+        analyzeTextBtn.disabled = false;
+        analyzeFileBtn.disabled = false;
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        analysisResultDiv.textContent = data.analysis || 'Não foi possível obter a análise.';
+
       } catch (error) {
-        console.error('Error fetching chat response:', error);
-        appendMessage('assistant', 'Error: Could not retrieve response.');
+        console.error('Erro ao analisar:', error);
+        analysisResultDiv.textContent = `Erro ao processar sua solicitação: ${error.message}`;
+        loadingMessage.style.display = 'none';
+        analyzeTextBtn.disabled = false;
+        analyzeFileBtn.disabled = false;
       }
+    }
+
+    analyzeTextBtn.addEventListener('click', async () => {
+      const textToAnalyze = legalTextInput.value.trim();
+      if (!textToAnalyze) {
+        alert('Por favor, insira um texto para análise.');
+        return;
+      }
+      fetchAnalysis('/api/decifra/text', { text: textToAnalyze });
     });
 
-    // Allow sending message with the Enter key.
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        sendBtn.click();
-      }
-    });
-
-    // Handle file upload.
     uploadForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fileInput = document.getElementById('file-input');
       if (!fileInput.files || fileInput.files.length === 0) {
-        alert('Please select a file to upload.');
+        alert('Por favor, selecione um arquivo para enviar.');
         return;
       }
       const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-        const result = await response.json();
-        alert('File uploaded successfully.');
-        fileInput.value = ''; // Clear the file input.
-      } catch (error) {
-        console.error('File upload error:', error);
-        alert('File upload failed.');
-      }
+      formData.append('legal_file', fileInput.files[0]); // 'legal_file' deve bater com o nome no backend (multer)
+      
+      fetchAnalysis('/api/decifra/file', formData, true);
     });
   </script>
 </body>
