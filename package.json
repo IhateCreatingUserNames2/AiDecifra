@@ -1,29 +1,17 @@
 {
-  "name": "chatbot-o1",
+  "name": "ia-decifra-app",
   "version": "1.0.0",
-  "description": "Chatbot using o1 from OpenAI with RAG and Pinecone integration",
+  "description": "Aplicação IA Decifra para simplificar textos jurídicos usando OpenAI.",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
   "dependencies": {
+    "axios": "^1.4.0",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "express-fileupload": "^1.4.0",
-    "mammoth": "^1.5.5",
-    "pdf-parse": "^1.1.1",
-    "openai": "^3.2.1",
-    "fs-extra": "^11.1.1",
-    "@pinecone-database/pinecone": "^2.1.1",
-    "body-parser": "^1.20.2",
-    "csv-parser": "^3.0.0",
-    "node-fetch": "^2.6.7",
-    "axios": "^1.4.0",
-    "vectorious": "^6.1.14",
-    "@qdrant/js-client-rest": "^1.0.0",
-    "markdown-it": "^13.0.1",
-    "helmet": "^6.0.1",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1"
   },
   "engines": {
     "node": ">=14.0.0"
