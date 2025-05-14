@@ -1,218 +1,148 @@
 // app.js
 const express = require('express');
 const axios = require('axios');
-const multer = require('multer');
-const FormData = require('form-data');
-const fs = require('fs');
+const multer = require('multer'); // Para upload de arquivos
+const fs = require('fs'); // Para manipulação de arquivos
 const path = require('path');
-require('dotenv').config(); // Carrega as variáveis de ambiente
+const pdfParse = require('pdf-parse'); // Para extrair texto de PDF
+require('dotenv').config(); 
 
 const app = express();
 
-// Middleware para parse de JSON e URL-encoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve arquivos estáticos a partir do diretório raiz
 app.use(express.static(path.resolve(__dirname)));
 
-// Variáveis de ambiente
-const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
-const ASSISTANT_NAME = process.env.ASSISTANT_NAME || 'bluew';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // Chave padrão da OpenAI para gerar tokens efêmeros
-const PINECONE_BASE_URL = 'https://prod-1-data.ke.pinecone.io';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
 
-// ===============================
-// CHAT API ENDPOINT
-// ===============================
-app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
-  if (!message) {
-    return res.status(400).json({ error: 'No message provided' });
-  }
+// Configuração do Multer para upload de arquivos
+// Armazenar em memória para processamento e depois descartar
+const storage = multer.memoryStorage(); // Melhor para não salvar arquivos temporários desnecessariamente
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10 MB
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['application/pdf', 'text/plain'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Tipo de arquivo inválido. Apenas arquivos PDF e TXT são permitidos.'));
+        }
+    }
+});
 
-  try {
+// Função auxiliar para chamar a API da OpenAI (reutilizável)
+async function getOpenAIAnalysis(textToAnalyze) {
+    const prompt = `
+Você é um assistente jurídico especializado em simplificar textos legais para leigos, chamado "IA Decifra".
+Analise o seguinte texto jurídico fornecido pelo usuário. Sua tarefa é:
+1.  **Resumo Principal:** Forneça um resumo conciso do propósito geral do texto em linguagem simples (1-2 frases).
+2.  **Tradução de Jargões:** Identifique até 5-7 jargões ou termos técnicos complexos no texto e explique cada um de forma clara e simples, como se estivesse explicando para alguém sem nenhum conhecimento jurídico.
+3.  **Pontos de Atenção / "Bandeiras Vermelhas":** Se identificar cláusulas que podem ser desvantajosas, ambíguas, confusas ou que mereçam atenção especial do usuário (potenciais "armadilhas", obrigações importantes, multas, renúncias de direito), liste até 3-5 desses pontos, explicando o porquê eles merecem atenção e qual o possível impacto para o usuário. Se não houver pontos óbvios de grande risco, mencione as obrigações principais ou os direitos mais relevantes que o texto estabelece.
+4.  **Linguagem:** Use uma linguagem extremamente acessível, amigável e didática. Evite usar mais jargões ao explicar.
+5.  **Formato da Resposta:** Organize a resposta de forma clara, usando títulos para cada seção (Ex: "Resumo Principal:", "Termos Simplificados:", "Pontos de Atenção:").
+
+Texto jurídico para análise:
+---
+${textToAnalyze}
+---
+Análise do IA Decifra:
+  `;
+
     const response = await axios.post(
-      `${PINECONE_BASE_URL}/assistant/chat/${ASSISTANT_NAME}/chat/completions`,
-      {
-        messages: [{ role: 'user', content: message }],
-        stream: false,
-        model: 'gpt-4.1-nano-2025-04-14',
-      },
-      {
-        headers: {
-          'Api-Key': PINECONE_API_KEY,
-          'Content-Type': 'application/json',
+        'https://api.openai.com/v1/chat/completions',
+        {
+            model: OPENAI_MODEL,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 1500, // Aumentei um pouco caso o texto extraído seja grande
         },
-      }
-    );
-    res.json(response.data);
-  } catch (error) {
-    console.error('Chat API Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Chat request failed' });
-  }
-});
-
-// ===============================
-// FILE UPLOAD ENDPOINT
-// ===============================
-const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10 MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'text/plain'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF and TXT files are allowed.'));
-    }
-  },
-});
-
-app.post('/api/upload', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-
-  try {
-    const filePath = req.file.path;
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath), req.file.originalname);
-
-    const uploadUrl = `${PINECONE_BASE_URL}/assistant/files/${ASSISTANT_NAME}`;
-    const response = await axios.post(uploadUrl, formData, {
-      headers: {
-        'Api-Key': PINECONE_API_KEY,
-        ...formData.getHeaders(),
-      },
-    });
-
-    // Remove o arquivo temporário
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error deleting temporary file:', err);
-    });
-
-    res.json(response.data);
-  } catch (error) {
-    console.error('File Upload Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'File upload failed' });
-  }
-});
-
-// ===============================
-// AUDIO UPLOAD (VOICE) ENDPOINT
-// ===============================
-const audioUpload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10 MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/ogg'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only audio files are allowed.'));
-    }
-  },
-});
-
-app.post('/api/voice', audioUpload.single('audio'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No audio file uploaded' });
-  }
-
-  try {
-    const filePath = req.file.path;
-    // Converte o arquivo de áudio para Base64
-    const audioBase64 = fs.readFileSync(filePath, { encoding: 'base64' });
-    // Remove o arquivo temporário
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error deleting temporary audio file:', err);
-    });
-
-    // Cria uma sessão efêmera chamando a API da OpenAI
-    const sessionResponse = await axios.post(
-      "https://api.openai.com/v1/realtime/sessions",
-      {
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: "verse",
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
+        {
+            headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
         }
-      }
     );
-    const ephemeralKey = sessionResponse.data.client_secret.value;
-    console.log("Ephemeral Key obtida para envio de áudio:", ephemeralKey);
+    return response.data.choices && response.data.choices.length > 0
+        ? response.data.choices[0].message.content.trim()
+        : 'Não foi possível gerar a análise a partir do texto fornecido.';
+}
 
-    // Cria o payload do evento para enviar o áudio completo como input
-    const eventPayload = {
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "user",
-        content: [
-          {
-            type: "input_audio",
-            audio: audioBase64,
-          }
-        ]
-      }
-    };
 
-    const baseUrl = "https://api.openai.com/v1/realtime";
-    const model = "gpt-4o-mini-realtime-preview";
-    // Envia o evento para a API Realtime da OpenAI
-    const eventResponse = await axios.post(
-      `${baseUrl}?model=${model}`,
-      eventPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${ephemeralKey}`,
-          "Content-Type": "application/json",
-        }
-      }
-    );
-
-    // Supomos que a resposta contenha as propriedades 'transcription' e 'audioResponse' (em Base64)
-    res.json(eventResponse.data);
-  } catch (error) {
-    console.error('Voice API Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Voice processing failed' });
+// ===============================
+// IA DECIFRA - ENDPOINT PARA TEXTO
+// ===============================
+app.post('/api/decifra/text', async (req, res) => {
+  const { text } = req.body;
+  if (!text) {
+    return res.status(400).json({ error: 'Nenhum texto fornecido para análise.' });
   }
-});
 
-// ===============================
-// REALTIME ENDPOINTS (para WebRTC)
-// ===============================
-app.get('/realtime', (req, res) => {
-  res.sendFile(path.resolve(__dirname, 'realtime.html'));
-});
-
-app.get('/session', async (req, res) => {
   try {
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini-realtime-preview",
-        voice: "verse",
-      }),
-    });
-    const data = await response.json();
-    res.json(data);
+    const analysis = await getOpenAIAnalysis(text);
+    res.json({ analysis: analysis });
   } catch (error) {
-    console.error('Error generating ephemeral token:', error);
-    res.status(500).json({ error: 'Failed to generate session token' });
+    console.error('IA Decifra (Text) API Error:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.error?.message || 'Falha na solicitação de análise de texto.';
+    res.status(500).json({ error: errorMessage });
   }
+});
+
+// ===============================
+// IA DECIFRA - ENDPOINT PARA ARQUIVO
+// ===============================
+app.post('/api/decifra/file', upload.single('legal_file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+
+    let extractedText = '';
+
+    try {
+        if (req.file.mimetype === 'application/pdf') {
+            const dataBuffer = req.file.buffer; // Usar o buffer do arquivo em memória
+            const data = await pdfParse(dataBuffer);
+            extractedText = data.text;
+        } else if (req.file.mimetype === 'text/plain') {
+            extractedText = req.file.buffer.toString('utf-8'); // Converter buffer para string
+        } else {
+            return res.status(400).json({ error: 'Tipo de arquivo não suportado para extração.' });
+        }
+
+        if (!extractedText.trim()) {
+            return res.status(400).json({ error: 'Não foi possível extrair texto do arquivo ou o arquivo está vazio.' });
+        }
+        
+        // Limitar o tamanho do texto extraído para evitar estouro de tokens na API da OpenAI
+        const MAX_TEXT_LENGTH = 15000; // Ajuste este valor conforme necessário (considerando tokens)
+        if (extractedText.length > MAX_TEXT_LENGTH) {
+            extractedText = extractedText.substring(0, MAX_TEXT_LENGTH) + "\n\n[Texto truncado devido ao tamanho excessivo]";
+            console.warn("Texto do arquivo truncado devido ao tamanho excessivo.")
+        }
+
+
+        const analysis = await getOpenAIAnalysis(extractedText);
+        res.json({ analysis: analysis });
+
+    } catch (error) {
+        console.error('IA Decifra (File) API Error:', error.response?.data || error.message, error.stack);
+        const userErrorMessage = error.message.includes('Tipo de arquivo inválido') 
+            ? error.message 
+            : (error.message.includes('Não foi possível extrair texto') ? error.message : 'Falha no processamento do arquivo.');
+        res.status(500).json({ error: userErrorMessage });
+    }
+});
+
+
+// Rota para a página principal
+app.get('/', (req, res) => {
+  res.sendFile(path.resolve(__dirname, 'index.html'));
 });
 
 // ===============================
 // START THE SERVER
 // ===============================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor IA Decifra rodando na porta ${PORT}`));
